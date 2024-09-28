@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reliability Engineering Quiz</title>
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #eef2f3;
+      color: #333;
+      padding: 40px;
+    }
+    h1 {
+      color: #2c3e50;
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    #registration, #quiz, #results {
+      background-color: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      margin: auto;
+      max-width: 600px;
+    }
+    .hidden { display: none; }
+    .question {
+      font-size: 1.5rem; 
+      margin-bottom: 20px; 
+      color: #34495e;
+    }
+    .option { 
+      cursor: pointer; 
+      padding: 12px 18px; 
+      margin: 8px 0; 
+      border: 1px solid #ccc; 
+      border-radius: 5px; 
+      background-color: #f4f4f9;
+      transition: background-color 0.3s ease, transform 0.2s;
+    }
+    .option:hover {
+      background-color: #dcdde1;
+      transform: scale(1.02);
+    }
+    button {
+      width: 100%;
+      padding: 12px; 
+      font-size: 16px; 
+      border: none; 
+      border-radius: 5px; 
+      background-color: #3498db; 
+      color: white; 
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s;
+    }
+    button:hover {
+      background-color: #2980b9;
+      transform: scale(1.02);
+    }
+    #points {
+      margin-top: 20px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #2ecc71;
+    }
+    .correct { background-color: #2ecc71 !important; color: white !important; }
+    .incorrect { background-color: #e74c3c !important; color: white !important; }
+    .footer {
+      margin-top: 40px;
+      text-align: center;
+      color: #777;
+      font-size: 0.9rem;
+    }
+  </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.3.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.3.2/firebase-database.js"></script>
+</head>
+<body>
+
+  <!-- Registration Page -->
+  <div id="registration">
+    <h1>Enter Your Registration Number</h1>
+    <input type="text" id="regno" class="form-control" placeholder="Enter Reg No">
+    <button onclick="register()" class="btn btn-primary mt-3">Submit</button>
+  </div>
+
+  <!-- Quiz Page -->
+  <div id="quiz" class="hidden">
+    <div id="question-container">
+      <p class="question" id="question"></p>
+      <div id="options"></div>
+      <button id="nextBtn" class="hidden btn btn-primary mt-3" onclick="nextQuestion()">Next</button>
+    </div>
+    <p id="points" class="text-center"></p>
+  </div>
+
+  <!-- Results Page -->
+  <div id="results" class="hidden">
+    <h1>Quiz Results</h1>
+    <div id="resultsContainer"></div>
+    <button onclick="restartQuiz()" class="btn btn-primary mt-3">View Leaderboard</button>
+  </div>
+
+  <div class="footer">
+    <p>&copy; 2024 Reliability Engineering Quiz. All rights reserved.</p>
+  </div>
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCwF6jwAY3hVEwQO2rFDauj4ZjpfvcbgDk",
+      authDomain: "softwareengineering-27887.firebaseapp.com",
+      projectId: "softwareengineering-27887",
+      storageBucket: "softwareengineering-27887.appspot.com",
+      messagingSenderId: "97296846010",
+      appId: "1:97296846010:web:ba510fc0014516f3120683",
+      measurementId: "G-1NDF5R2D63"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let regNo = "";
+    let currentQuestion = 0;
+    let points = 0;
+    let quizData = [];
+
+    // Register user
+    function register() {
+      regNo = document.getElementById("regno").value;
+      if (regNo.trim() === "") return alert("Please enter a registration number");
+
+      // Check if user exists and update login count
+      db.ref("users/" + regNo).once("value", snapshot => {
+        const data = snapshot.val();
+        const loginCount = data && data.loginCount ? data.loginCount + 1 : 1;
+
+        // Save user data and login count
+        db.ref("users/" + regNo).set({ regNo, points: 0, loginCount });
+
+        // Hide registration, show quiz section
+        document.getElementById("registration").classList.add("hidden");
+        document.getElementById("quiz").classList.remove("hidden");
+
+        // Fetch quiz data from the database
+        fetchQuizData();
+      });
+    }
+
+    // Fetch quiz data
+    function fetchQuizData() {
+      db.ref("quizzes").once("value", snapshot => {
+        const data = snapshot.val();
+
+        // Transform data into an array of questions in the order they are stored
+        quizData = Object.keys(data).map(key => ({
+          question: data[key].question,
+          options: data[key].options,
+          correctAnswer: data[key].correctAnswer // Assuming correctAnswer is the index
+        }));
+
+        // Display the first question
+        showQuestion();
+      });
+    }
+
+    // Display question and options
+    function showQuestion() {
+      const questionData = quizData[currentQuestion];
+      document.getElementById("question").textContent = questionData.question;
+
+      const optionsContainer = document.getElementById("options");
+      optionsContainer.innerHTML = ""; // Clear previous options
+
+      questionData.options.forEach((option, index) => {
+        const optionDiv = document.createElement("div");
+        optionDiv.className = "option";
+        optionDiv.textContent = option;
+        optionDiv.onclick = () => selectOption(index);
+        optionsContainer.appendChild(optionDiv);
+      });
+
+      document.getElementById("nextBtn").classList.add("hidden"); // Hide next button
+    }
+
+    // Handle option selection
+    function selectOption(index) {
+      // Store selected answer in session storage
+      let selectedAnswers = JSON.parse(sessionStorage.getItem('selectedAnswers')) || {};
+      selectedAnswers[currentQuestion] = index;
+      sessionStorage.setItem('selectedAnswers', JSON.stringify(selectedAnswers));
+
+      document.querySelectorAll('.option').forEach((opt, i) => {
+        opt.style.backgroundColor = i === index ? '#3498db' : '#f4f4f9'; // Highlight selected option
+        opt.style.color = i === index ? '#fff' : '#333';
+      });
+      document.getElementById("nextBtn").classList.remove("hidden"); // Show next button
+    }
+
+    // Move to the next question
+    function nextQuestion() {
+      const selectedAnswers = JSON.parse(sessionStorage.getItem('selectedAnswers'));
+      const userAnswerIndex = selectedAnswers[currentQuestion];
+
+      // Check if the answer is correct
+      if (userAnswerIndex === quizData[currentQuestion].correctAnswer) {
+        points++; // Increment points for correct answer
+        // Update user points in Firebase
+        db.ref("users/" + regNo).update({ points });
+      }
+
+      // Move to the next question or end the quiz
+      if (currentQuestion < quizData.length - 1) {
+        currentQuestion++;
+        showQuestion();
+      } else {
+        endQuiz();
+      }
+    }
+
+    // End the quiz
+    function endQuiz() {
+      document.getElementById("quiz").classList.add("hidden");
+      showResults();
+    }
+
+    // Show results
+    function showResults() {
+      const resultsContainer = document.getElementById("resultsContainer");
+      resultsContainer.innerHTML = ""; // Clear previous results
+      const selectedAnswers = JSON.parse(sessionStorage.getItem('selectedAnswers'));
+
+      quizData.forEach((q, index) => {
+        const answerIndex = selectedAnswers[index];
+        const answerText = q.options[answerIndex];
+        const isCorrect = answerIndex === q.correctAnswer;
+
+        const resultDiv = document.createElement("div");
+        resultDiv.className = isCorrect ? "correct" : "incorrect";
+        resultDiv.textContent = `${q.question} - Your answer: ${answerText} (${isCorrect ? 'Correct' : 'Incorrect'})`;
+        resultsContainer.appendChild(resultDiv);
+      });
+
+      document.getElementById("points").textContent = `Your total points: ${points}`;
+      document.getElementById("results").classList.remove("hidden");
+    }
+
+    // Restart the quiz
+    function restartQuiz() {
+      // Clear the session storage and reset variables
+      sessionStorage.removeItem('selectedAnswers');
+      currentQuestion = 0;
+      points = 0;
+
+      // Reset UI and show registration again
+      document.getElementById("results").classList.add("hidden");
+      document.getElementById("registration").classList.remove("hidden");
+      document.getElementById("regno").value = ""; // Clear input
+    }
+
+    // Refresh the page when visibility changes
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        window.location.reload(); // Reload the page when the tab is hidden
+      }
+    });
+  </script>
+</body>
+</html>

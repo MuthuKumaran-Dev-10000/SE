@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Data Storage</title>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.1.3/firebase-database.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+    // Firebase config
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCwF6jwAY3hVEwQO2rFDauj4ZjpfvcbgDk",
+  authDomain: "softwareengineering-27887.firebaseapp.com",
+  projectId: "softwareengineering-27887",
+  storageBucket: "softwareengineering-27887.appspot.com",
+  messagingSenderId: "97296846010",
+  appId: "1:97296846010:web:ba510fc0014516f3120683",
+  measurementId: "G-1NDF5R2D63"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// Function to shuffle options
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+// Quiz questions array
+const quizQuestions = [
+  {
+    question: "What does MTBF stand for?",
+    options: ["Mean Time Between Failures", "Mean Time Before Failure", "Mean Time to Break", "Mean Time to Fail"],
+    correctAnswer: 0 // Initially set to index 0
+  },
+  {
+    question: "What is the formula for MTBF?",
+    options: ["MTBF = Total Operational Time / Number of Failures", "MTBF = Total Downtime / Number of Failures", "MTBF = Total Uptime / Number of Failures", "MTBF = Total Failures / Total Time"],
+    correctAnswer: 0
+  },
+  {
+    question: "What does MFFT stand for?",
+    options: ["Mean Failure Frequency Time", "Mean Failure Free Time", "Mean Failures Found Time", "Mean Frequency of Failures Time"],
+    correctAnswer: 1
+  },
+  {
+    question: "What is the formula for MFFT?",
+    options: ["MFFT = Total Time Without Failure / Number of Failures", "MFFT = Total Time / Total Failures", "MFFT = Total Failures / Time", "MFFT = Total Uptime / Time"],
+    correctAnswer: 0
+  },
+  {
+    question: "What is a common method to measure reliability?",
+    options: ["MTBF", "MFFT", "Failure Rate", "All of the above"],
+    correctAnswer: 3
+  },
+  {
+    question: "If a device has an MTBF of 500 hours, how many failures would you expect in 1000 hours of operation?",
+    options: ["2", "1", "5", "10"],
+    correctAnswer: 2
+  },
+  {
+    question: "In reliability engineering, what does a lower failure rate indicate?",
+    options: ["Higher reliability", "Lower reliability", "No effect on reliability", "None of the above"],
+    correctAnswer: 0
+  },
+  {
+    question: "What is the relationship between MTBF and reliability?",
+    options: ["Higher MTBF means lower reliability", "Higher MTBF means higher reliability", "MTBF does not affect reliability", "MTBF is unrelated to reliability"],
+    correctAnswer: 1
+  },
+  {
+    question: "In a reliability test, what is the time to failure?",
+    options: ["The total time until the first failure occurs", "The average time between failures", "The total time of operation", "The total downtime"],
+    correctAnswer: 0
+  },
+  {
+    question: "Which of the following improves MTBF?",
+    options: ["Regular maintenance", "Infrequent maintenance", "Ignoring failures", "None of the above"],
+    correctAnswer: 0
+  },
+  {
+    question: "What does the term 'reliability' mean?",
+    options: ["The ability of a system to perform its required functions under stated conditions for a specified period", "The time until a failure occurs", "The number of failures in a system", "None of the above"],
+    correctAnswer: 0
+  },
+  {
+    question: "Which of the following is a component of reliability engineering?",
+    options: ["Failure analysis", "Predictive maintenance", "Quality control", "All of the above"],
+    correctAnswer: 3
+  },
+  {
+    question: "Which distribution is often used to model the time between failures?",
+    options: ["Exponential distribution", "Normal distribution", "Binomial distribution", "Poisson distribution"],
+    correctAnswer: 0
+  },
+  {
+    question: "What does a reliability function represent?",
+    options: ["The probability that a system performs its intended function without failure", "The average time to failure", "The average time between failures", "The number of failures over time"],
+    correctAnswer: 0
+  },
+  {
+    question: "What is 'availability' in reliability engineering?",
+    options: ["The probability that a system is operational at a given time", "The total time a system can operate", "The number of times a system fails", "None of the above"],
+    correctAnswer: 0
+  },
+  {
+    question: "If a system is operational 80% of the time, what is its availability?",
+    options: ["0.80", "80", "0.20", "20"],
+    correctAnswer: 0
+  },
+  {
+    question: "What does a higher MTTR (Mean Time to Repair) imply?",
+    options: ["Faster repairs", "Slower repairs", "More reliable systems", "None of the above"],
+    correctAnswer: 1
+  },
+  {
+    question: "What is the importance of conducting a failure mode effects analysis (FMEA)?",
+    options: ["To predict failures and improve reliability", "To ignore potential failures", "To increase the number of failures", "None of the above"],
+    correctAnswer: 0
+  },
+  {
+    question: "Which of the following factors can affect MTBF?",
+    options: ["Component quality", "Maintenance frequency", "Operational environment", "All of the above"],
+    correctAnswer: 3
+  },
+  {
+    question: "What is the purpose of a reliability-centered maintenance (RCM) approach?",
+    options: ["To ensure system reliability through proactive maintenance", "To reduce maintenance costs", "To ignore maintenance", "None of the above"],
+    correctAnswer: 0
+  },
+  {
+    question: "What does a high level of redundancy in a system provide?",
+    options: ["Higher reliability", "Lower reliability", "More complexity", "Both A and C"],
+    correctAnswer: 3
+  }
+];
+
+// Push questions to the database
+quizQuestions.forEach((quiz, index) => {
+  // Shuffle the options while keeping track of the correct answer index
+  const originalCorrectAnswerIndex = quiz.correctAnswer;
+  quiz.options = shuffleArray([...quiz.options]); // Create a shuffled copy of options
+  quiz.correctAnswer = quiz.options.indexOf(quiz.options[originalCorrectAnswerIndex]); // Update the correct answer index
+
+  // Push to Firebase
+  db.ref("quizzes/question" + (index + 1)).set(quiz)
+    .then(() => {
+      console.log("Question " + (index + 1) + " pushed successfully!");
+    })
+    .catch((error) => {
+      console.error("Error pushing question " + (index + 1) + ": ", error);
+    });
+});
+</script>
+</head>
+<body>
+    <h1>Push Quiz Questions to Firebase</h1>
+    <button id="pushQuestionsButton">Store Quiz Questions</button>
+</body>
+</html>

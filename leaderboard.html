@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leaderboard</title>
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      background-color: #f4f4f9;
+      color: #333;
+      padding: 40px;
+    }
+    h1 { 
+      color: #2c3e50; 
+      text-align: center; 
+      margin-bottom: 30px; 
+    }
+    table { 
+      width: 100%; 
+      margin-top: 20px; 
+      border-collapse: collapse; 
+      border-radius: 10px; 
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    th, td { 
+      padding: 15px; 
+      text-align: left; 
+      border-bottom: 1px solid #ddd; 
+    }
+    th { 
+      background-color: #3498db; 
+      color: white; 
+    }
+    .icon-buttons { 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      width: 70px; 
+    }
+    .btn-link {
+      color: white;
+      font-size: 1.2em;
+    }
+    .btn-link:hover {
+      color: #ffd700; /* Gold color on hover */
+    }
+    .alert {
+      text-align: center; 
+      margin-top: 20px;
+    }
+  </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.3.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.3.2/firebase-database.js"></script>
+</head>
+<body>
+
+  <h1>Leaderboard</h1>
+  
+  <table class="table mt-3">
+    <thead>
+      <tr>
+        <th>Reg No</th>
+        <th>Points 
+          <div class="icon-buttons">
+            <button onclick="sortData('points', 'asc')" class="btn btn-link">
+              <i class="fas fa-arrow-up"></i>
+            </button>
+            <button onclick="sortData('points', 'desc')" class="btn btn-link">
+              <i class="fas fa-arrow-down"></i>
+            </button>
+          </div>
+        </th>
+        <th>Emoji</th>
+      </tr>
+    </thead>
+    <tbody id="leaderboardTableBody"></tbody>
+  </table>
+
+  <div id="alertMessage" class="alert alert-danger hidden"></div>
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCwF6jwAY3hVEwQO2rFDauj4ZjpfvcbgDk",
+      authDomain: "softwareengineering-27887.firebaseapp.com",
+      projectId: "softwareengineering-27887",
+      storageBucket: "softwareengineering-27887.appspot.com",
+      messagingSenderId: "97296846010",
+      appId: "1:97296846010:web:ba510fc0014516f3120683",
+      measurementId: "G-1NDF5R2D63"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let leaderboardData = [];
+
+    // Fetch users data from Firebase
+    function fetchUsersData() {
+      db.ref("users").once("value", snapshot => {
+        const data = snapshot.val();
+        leaderboardData = [];
+
+        for (const regNo in data) {
+          if (data.hasOwnProperty(regNo)) {
+            const userData = data[regNo];
+            leaderboardData.push({
+              regNo: userData.regNo,
+              points: userData.points,
+            });
+          }
+        }
+        displayLeaderboard();
+      });
+    }
+
+    // Function to get emoji based on points
+    function getEmoji(points) {
+      if (points >= 20) return "👑";  // Excellent
+      if (points >= 15) return "🎖️";  // Great
+      if (points >= 10) return "😊";  // Good
+      if (points >= 5) return "👍";   // Average
+      return "😐";                    // Needs Improvement
+    }
+
+    // Display leaderboard data
+    function displayLeaderboard() {
+      const tbody = document.getElementById("leaderboardTableBody");
+      tbody.innerHTML = ""; // Clear previous data
+
+      leaderboardData.forEach(user => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${user.regNo}</td>
+          <td>${user.points}</td>
+          <td>${getEmoji(user.points)}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // Sort data based on the given field and order
+    function sortData(field, order) {
+      leaderboardData.sort((a, b) => {
+        if (order === 'asc') {
+          return a[field] - b[field];
+        } else {
+          return b[field] - a[field];
+        }
+      });
+      displayLeaderboard(); // Re-display the sorted leaderboard
+    }
+
+    // Initial fetch of user data
+    fetchUsersData();
+  </script>
+</body>
+</html>
